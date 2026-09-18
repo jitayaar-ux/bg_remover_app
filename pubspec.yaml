@@ -1,5 +1,5 @@
 name: bg_remover_app
-description: A new Flutter project.
+description: A professional background remover app.
 publish_to: 'none'
 
 environment:
@@ -10,6 +10,8 @@ dependencies:
     sdk: flutter
   image_picker: ^1.0.7
   image: ^4.1.3
+  path_provider: ^2.1.2
+  gal: ^2.2.0
 
 flutter:
   uses-material-design: true
