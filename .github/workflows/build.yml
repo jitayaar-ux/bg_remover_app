@@ -24,15 +24,17 @@ jobs:
           mkdir -p backup
           cp lib/main.dart backup/main.dart
           cp pubspec.yaml backup/pubspec.yaml
-          flutter create . --platforms=android --project-name bg_remover_app
+          flutter create . --platforms=android --project-name telegram_sms_app
           cp backup/main.dart lib/main.dart
           cp backup/pubspec.yaml pubspec.yaml
           
       - name: Install dependencies
         run: flutter pub get
         
-      - name: Build APK
-        run: flutter build apk --release
+      - name: Clean and Build APK
+        run: |
+          flutter clean
+          flutter build apk --release
         
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
