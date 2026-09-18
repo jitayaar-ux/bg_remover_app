@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:image/image.dart' as img;
+import 'package:gal/gal.dart';
 
 void main() {
   runApp(const MyApp());
@@ -15,8 +16,8 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Free BG Remover',
-      theme: ThemeData(primarySwatch: Colors.blue),
+      title: 'Pro Background Remover',
+      theme: ThemeData(primarySwatch: Colors.deepPurple),
       home: const HomeScreen(),
     );
   }
@@ -33,6 +34,8 @@ class _HomeScreenState extends State<HomeScreen> {
   File? _imageFile;
   File? _processedImageFile;
   bool _isLoading = false;
+  double _tolerance = 40.0; // Background removal sensitivity slider
+  Color _bgPreviewColor = Colors.transparent;
 
   final ImagePicker _picker = ImagePicker();
 
@@ -43,11 +46,11 @@ class _HomeScreenState extends State<HomeScreen> {
         _imageFile = File(pickedFile.path);
         _processedImageFile = null;
       });
-      _removeBackground(_imageFile!);
+      _processImage(_imageFile!);
     }
   }
 
-  Future<void> _removeBackground(File image) async {
+  Future<void> _processImage(File image) async {
     setState(() {
       _isLoading = true;
     });
@@ -57,23 +60,30 @@ class _HomeScreenState extends State<HomeScreen> {
       img.Image? decodedImage = img.decodeImage(bytes);
 
       if (decodedImage != null) {
-        // Loop through pixels and make light/white background transparent
+        img.Pixel refPixel = decodedImage.getPixel(0, 0);
+        num refR = refPixel.r;
+        num refG = refPixel.g;
+        num refB = refPixel.b;
+
         for (int y = 0; y < decodedImage.height; y++) {
           for (int x = 0; x < decodedImage.width; x++) {
             img.Pixel pixel = decodedImage.getPixel(x, y);
-            int red = pixel.r.toInt();
-            int green = pixel.g.toInt();
-            int blue = pixel.b.toInt();
+            num r = pixel.r;
+            num g = pixel.g;
+            num b = pixel.b;
 
-            // Jekar background white ya light hove taan usnu transparent kar do
-            if (red > 240 && green > 240 && blue > 240) {
+            double diff = ((r - refR).abs() + (g - refG).abs() + (b - refB).abs()) / 3;
+            bool isLight = (r > (255 - _tolerance) && g > (255 - _tolerance) && b > (255 - _tolerance));
+            bool matchesRef = diff < _tolerance;
+
+            if (isLight || matchesRef) {
               decodedImage.setPixelRgba(x, y, 0, 0, 0, 0);
             }
           }
         }
 
         final tempDir = Directory.systemTemp;
-        final targetPath = '${tempDir.path}/removed_bg_${DateTime.now().millisecondsSinceEpoch}.png';
+        final targetPath = '${tempDir.path}/pro_bg_${DateTime.now().millisecondsSinceEpoch}.png';
         File outputFile = File(targetPath)..writeAsBytesSync(img.encodePng(decodedImage));
 
         setState(() {
@@ -89,45 +99,135 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  Future<void> _saveToGallery() async {
+    if (_processedImageFile == null) return;
+    try {
+      bool hasAccess = await Gal.hasAccess();
+      if (!hasAccess) {
+        await Gal.requestAccess();
+      }
+      await Gal.putImage(_processedImageFile!.path);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Photo successfully saved to Gallery!')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to save image: $e')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Free Background Remover (No Ads)'),
+        title: const Text('Pro Background Remover'),
       ),
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              if (_imageFile != null) ...[
-                const Text('Original Image:', style: TextStyle(fontWeight: FontWeight.bold)),
-                const SizedBox(height: 8),
-                Image.file(_imageFile!, height: 150),
-                const SizedBox(height: 20),
-              ],
-              if (_isLoading)
-                const CircularProgressIndicator()
-              else if (_processedImageFile != null) ...[
-                const Text('Background Removed (Transparent):', style: TextStyle(fontWeight: FontWeight.bold)),
-                const SizedBox(height: 8),
-                Container(
-                  color: Colors.grey[300],
-                  child: Image.file(_processedImageFile!, height: 150),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            if (_imageFile != null) ...[
+              const Text('Original Image', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              const SizedBox(height: 8),
+              Image.file(_imageFile!, height: 150),
+              const SizedBox(height: 20),
+            ],
+            if (_isLoading)
+              const CircularProgressIndicator()
+            else if (_processedImageFile != null) ...[
+              const Text('Processed Result:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              const SizedBox(height: 8),
+              Container(
+                height: 160,
+                decoration: BoxDecoration(
+                  color: _bgPreviewColor,
+                  border: Border.all(color: Colors.grey),
                 ),
-                const SizedBox(height: 20),
-              ],
+                child: Center(
+                  child: Image.file(_processedImageFile!),
+                ),
+              ),
+              const SizedBox(height: 12),
+              // Background Color Changer
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text('BG Color: '),
+                  IconButton(
+                    icon: const Icon(Icons.crop_din, color: Colors.grey),
+                    onPressed: () => setState(() => _bgPreviewColor = Colors.transparent),
+                    tooltip: 'Transparent',
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.circle, color: Colors.white),
+                    onPressed: () => setState(() => _bgPreviewColor = Colors.white),
+                    tooltip: 'White',
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.circle, color: Colors.black),
+                    onPressed: () => setState(() => _bgPreviewColor = Colors.black),
+                    tooltip: 'Black',
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.circle, color: Colors.red),
+                    onPressed: () => setState(() => _bgPreviewColor = Colors.red),
+                    tooltip: 'Red',
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.circle, color: Colors.blue),
+                    onPressed: () => setState(() => _bgPreviewColor = Colors.blue),
+                    tooltip: 'Blue',
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              // Sensitivity Slider
+              Row(
+                children: [
+                  const Text('Sensitivity: '),
+                  Expanded(
+                    child: Slider(
+                      value: _tolerance,
+                      min: 10,
+                      max: 100,
+                      divisions: 18,
+                      label: _tolerance.round().toString(),
+                      onChanged: (val) {
+                        setState(() {
+                          _tolerance = val;
+                        });
+                        if (_imageFile != null) {
+                          _processImage(_imageFile!);
+                        }
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              // Save Button
               ElevatedButton.icon(
-                onPressed: _pickImage,
-                icon: const Icon(Icons.image),
-                label: const Text('Select Photo from Gallery'),
+                onPressed: _saveToGallery,
+                icon: const Icon(Icons.save),
+                label: const Text('Save to Phone Gallery'),
                 style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                 ),
               ),
+              const SizedBox(height: 20),
             ],
-          ),
+            ElevatedButton.icon(
+              onPressed: _pickImage,
+              icon: const Icon(Icons.image),
+              label: const Text('Select Photo from Gallery'),
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              ),
+            ),
+          ],
         ),
       ),
     );
