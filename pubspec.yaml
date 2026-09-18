@@ -1,0 +1,6 @@
+dependencies:
+  flutter:
+    sdk: flutter
+  image_picker: ^1.0.7
+  image: ^4.1.3
+  
