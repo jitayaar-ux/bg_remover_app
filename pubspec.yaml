@@ -1,5 +1,5 @@
 name: bg_remover_app
-description: Pro photo editor with AI auto remove, HD clear, crop, and eraser.
+description: Smart BG Remover with Edge Detection, Eraser, Crop, and HD.
 publish_to: 'none'
 
 environment:
