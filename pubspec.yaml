@@ -1,5 +1,5 @@
 name: bg_remover_app
-description: A professional background remover app.
+description: Pro photo editor with AI auto remove, HD clear, crop, and eraser.
 publish_to: 'none'
 
 environment:
@@ -12,6 +12,7 @@ dependencies:
   image: ^4.1.3
   path_provider: ^2.1.2
   gal: ^2.2.0
+  crop_image: ^1.0.17
 
 flutter:
   uses-material-design: true
