@@ -36,7 +36,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
   final ImagePicker _picker = ImagePicker();
 
-  // Gallery ton photo select karan lai
   Future<void> _pickImage() async {
     final XFile? pickedFile = await _picker.pickImage(source: ImageSource.gallery);
     if (pickedFile != null) {
@@ -48,7 +47,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // Background remove karan da logic (White background nu transparent karna)
   Future<void> _removeBackground(File image) async {
     setState(() {
       _isLoading = true;
@@ -59,25 +57,24 @@ class _HomeScreenState extends State<HomeScreen> {
       img.Image? decodedImage = img.decodeImage(bytes);
 
       if (decodedImage != null) {
-        img.Image transparentImage = img.numChannels(decodedImage, channels: img.Channels.rgba);
-
-        for (int y = 0; y < transparentImage.height; y++) {
-          for (int x = 0; x < transparentImage.width; x++) {
-            img.Pixel pixel = transparentImage.getPixel(x, y);
+        // Loop through pixels and make light/white background transparent
+        for (int y = 0; y < decodedImage.height; y++) {
+          for (int x = 0; x < decodedImage.width; x++) {
+            img.Pixel pixel = decodedImage.getPixel(x, y);
             int red = pixel.r.toInt();
             int green = pixel.g.toInt();
             int blue = pixel.b.toInt();
 
             // Jekar background white ya light hove taan usnu transparent kar do
             if (red > 240 && green > 240 && blue > 240) {
-              transparentImage.setPixelRgba(x, y, 0, 0, 0, 0);
+              decodedImage.setPixelRgba(x, y, 0, 0, 0, 0);
             }
           }
         }
 
         final tempDir = Directory.systemTemp;
         final targetPath = '${tempDir.path}/removed_bg_${DateTime.now().millisecondsSinceEpoch}.png';
-        File outputFile = File(targetPath)..writeAsBytesSync(img.encodePng(transparentImage));
+        File outputFile = File(targetPath)..writeAsBytesSync(img.encodePng(decodedImage));
 
         setState(() {
           _processedImageFile = outputFile;
@@ -116,7 +113,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 const Text('Background Removed (Transparent):', style: TextStyle(fontWeight: FontWeight.bold)),
                 const SizedBox(height: 8),
                 Container(
-                  color: Colors.grey[300], // Transparency dikhaun lai background grey rakhia hai
+                  color: Colors.grey[300],
                   child: Image.file(_processedImageFile!, height: 150),
                 ),
                 const SizedBox(height: 20),
