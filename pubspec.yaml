@@ -1,17 +1,5 @@
-name: Free_sms_app
-description: no internet need style dual-SIM secure SMS app with limits and timer.
-publish_to: 'none'
-
-environment:
-  sdk: '^3.13.0'
-
 dependencies:
   flutter:
     sdk: flutter
-  telephony: ^0.2.0
-  permission_handler: ^11.3.0
-  intl: ^0.19.0
-
-flutter:
-  uses-material-design: true
+  url_launcher: ^6.2.5
   
