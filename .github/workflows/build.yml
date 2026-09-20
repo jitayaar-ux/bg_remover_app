@@ -19,14 +19,11 @@ jobs:
         with:
           channel: 'stable'
           
-      - name: Create Android Project
-        run: flutter create . --platforms=android --project-name jeeta_sms_app
-          
       - name: Install dependencies
         run: flutter pub get
         
-      - name: Build APK (Verbose)
-        run: flutter build apk --release --verbose
+      - name: Build APK
+        run: flutter build apk --release
         
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
