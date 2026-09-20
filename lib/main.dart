@@ -13,7 +13,7 @@ class TelegramSmsApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Dual-SIM Telegram SMS',
+      title: 'Telegram Secure SMS',
       theme: ThemeData(
         brightness: Brightness.dark,
         primaryColor: const Color(0xFF2B5278),
@@ -24,22 +24,21 @@ class TelegramSmsApp extends StatelessWidget {
           surface: const Color(0xFF17212B),
         ),
       ),
-      home: const NumberSetupScreen(),
+      home: const LoginScreen(),
     );
   }
 }
 
-// 1. Login & Dual Number Setup Screen
-class NumberSetupScreen extends StatefulWidget {
-  const NumberSetupScreen({Key? key}) : super(key: key);
+// 1. Single Number Login Screen
+class LoginScreen extends StatefulWidget {
+  const LoginScreen({Key? key}) : super(key: key);
 
   @override
-  _NumberSetupScreenState createState() => _NumberSetupScreenState();
+  _LoginScreenState createState() => _LoginScreenState();
 }
 
-class _NumberSetupScreenState extends State<NumberSetupScreen> {
-  final TextEditingController _sim1Controller = TextEditingController();
-  final TextEditingController _sim2Controller = TextEditingController();
+class _LoginScreenState extends State<LoginScreen> {
+  final TextEditingController _phoneController = TextEditingController();
 
   @override
   void initState() {
@@ -48,27 +47,21 @@ class _NumberSetupScreenState extends State<NumberSetupScreen> {
   }
 
   Future<void> _requestPermissions() async {
-    await [
-      Permission.sms,
-      Permission.phone,
-    ].request();
+    await [Permission.sms, Permission.phone].request();
   }
 
-  void _proceedToChat() {
-    if (_sim1Controller.text.isEmpty || _sim2Controller.text.isEmpty) {
+  void _sendOtp() {
+    if (_phoneController.text.length < 10) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter both SIM numbers to login!')),
+        const SnackBar(content: Text('Please enter a valid mobile number!')),
       );
       return;
     }
 
-    Navigator.pushReplacement(
+    Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => ChatHomeScreen(
-          sim1Number: _sim1Controller.text,
-          sim2Number: _sim2Controller.text,
-        ),
+        builder: (context) => OtpVerificationScreen(phoneNumber: _phoneController.text),
       ),
     );
   }
@@ -76,44 +69,23 @@ class _NumberSetupScreenState extends State<NumberSetupScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Dual-SIM Login Setup'),
-        backgroundColor: const Color(0xFF17212B),
-      ),
+      appBar: AppBar(backgroundColor: const Color(0xFF17212B), title: const Text('Login with Phone')),
       body: Padding(
-        padding: const EdgeInsets.all(20.0),
+        padding: const EdgeInsets.all(24.0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.sim_card, size: 80, color: Color(0xFF4EA4F4)),
+            const Icon(Icons.lock_outline, size: 80, color: Color(0xFF4EA4F4)),
             const SizedBox(height: 20),
-            const Text(
-              'Enter Your Dual SIM Numbers',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
+            const Text('Enter Your Mobile Number', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
-            const Text(
-              'Get 200 daily free SMS limits combined (100 per SIM)',
-              style: TextStyle(color: Colors.grey, fontSize: 13),
-              textAlign: TextAlign.center,
-            ),
+            const Text('We will send a verification code via SMS', style: TextStyle(color: Colors.grey, fontSize: 13)),
             const SizedBox(height: 30),
             TextField(
-              controller: _sim1Controller,
+              controller: _phoneController,
               keyboardType: TextInputType.phone,
               decoration: InputDecoration(
-                labelText: 'SIM 1 Phone Number',
-                filled: true,
-                fillColor: const Color(0xFF17212B),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _sim2Controller,
-              keyboardType: TextInputType.phone,
-              decoration: InputDecoration(
-                labelText: 'SIM 2 Phone Number',
+                labelText: 'Phone Number',
                 filled: true,
                 fillColor: const Color(0xFF17212B),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
@@ -121,14 +93,14 @@ class _NumberSetupScreenState extends State<NumberSetupScreen> {
             ),
             const SizedBox(height: 30),
             ElevatedButton(
-              onPressed: _proceedToChat,
+              onPressed: _sendOtp,
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF4EA4F4),
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 14),
+                padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 14),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
-              child: const Text('Start Secure Chat', style: TextStyle(fontSize: 16)),
+              child: const Text('Get OTP', style: TextStyle(fontSize: 16)),
             ),
           ],
         ),
@@ -137,12 +109,175 @@ class _NumberSetupScreenState extends State<NumberSetupScreen> {
   }
 }
 
-// 2. Telegram Style Dual-SIM Chat Screen
-class ChatHomeScreen extends StatefulWidget {
-  final String sim1Number;
-  final String sim2Number;
+// 2. OTP Verification Screen
+class OtpVerificationScreen extends StatelessWidget {
+  final String phoneNumber;
+  OtpVerificationScreen({Key? key, required this.phoneNumber}) : super(key: key);
 
-  const ChatHomeScreen({Key? key, required this.sim1Number, required this.sim2Number}) : super(key: key);
+  final TextEditingController _otpController = TextEditingController();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(backgroundColor: const Color(0xFF17212B), title: const Text('Verify OTP')),
+      body: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.verified_user, size: 80, color: Colors.greenAccent),
+            const SizedBox(height: 20),
+            Text('Enter 4-digit OTP sent to\n$phoneNumber', textAlign: TextAlign.center, style: const TextStyle(fontSize: 16)),
+            const SizedBox(height: 8),
+            const Text('(Demo OTP: 1234)', style: TextStyle(color: Colors.orange, fontSize: 13)),
+            const SizedBox(height: 30),
+            TextField(
+              controller: _otpController,
+              keyboardType: TextInputType.number,
+              maxLength: 4,
+              decoration: InputDecoration(
+                labelText: 'Enter OTP (1234)',
+                filled: true,
+                fillColor: const Color(0xFF17212B),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () {
+                if (_otpController.text == "1234") {
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => ProfileSetupScreen(phoneNumber: phoneNumber),
+                    ),
+                  );
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Invalid OTP! Enter 1234')),
+                  );
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: const Text('Verify & Continue', style: TextStyle(fontSize: 16)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// 3. Profile Creation Screen (DP, Username, Private Number)
+class ProfileSetupScreen extends StatefulWidget {
+  final String phoneNumber;
+  const ProfileSetupScreen({Key? key, required this.phoneNumber}) : super(key: key);
+
+  @override
+  _ProfileSetupScreenState createState() => _ProfileSetupScreenState();
+}
+
+class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
+  final TextEditingController _nameController = TextEditingController();
+
+  void _saveProfile() {
+    if (_nameController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter your username!')),
+      );
+      return;
+    }
+
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ChatHomeScreen(
+          username: _nameController.text,
+          privateNumber: widget.phoneNumber,
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(backgroundColor: const Color(0xFF17212B), title: const Text('Create Profile')),
+      body: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const CircleAvatar(
+              radius: 50,
+              backgroundColor: Color(0xFF2B5278),
+              child: Icon(Icons.person, size: 60, color: Colors.white),
+            ),
+            const SizedBox(height: 10),
+            const Text('Tap to set Display Picture (DP)', style: TextStyle(color: Colors.grey, fontSize: 12)),
+            const SizedBox(height: 30),
+            TextField(
+              controller: _nameController,
+              decoration: InputDecoration(
+                labelText: 'Username',
+                filled: true,
+                fillColor: const Color(0xFF17212B),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+            const SizedBox(height: 16),
+            // Private Number field (Only for me)
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xFF17212B),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.white12),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Phone Number (Private)', style: TextStyle(color: Colors.grey, fontSize: 11)),
+                      const SizedBox(height: 4),
+                      Text(widget.phoneNumber, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                  const Icon(Icons.lock, color: Colors.greenAccent, size: 20),
+                ],
+              ),
+            ),
+            const SizedBox(height: 30),
+            ElevatedButton(
+              onPressed: _saveProfile,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF4EA4F4),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: const Text('Save & Open Chat', style: TextStyle(fontSize: 16)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// 4. Telegram Style Chat Screen with SIM Selector
+class ChatHomeScreen extends StatefulWidget {
+  final String username;
+  final String privateNumber;
+
+  const ChatHomeScreen({Key? key, required this.username, required this.privateNumber}) : super(key: key);
 
   @override
   _ChatHomeScreenState createState() => _ChatHomeScreenState();
@@ -152,8 +287,8 @@ class _ChatHomeScreenState extends State<ChatHomeScreen> {
   final TextEditingController _msgController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
 
-  int _sim1Used = 10;
-  int _sim2Used = 5;
+  int _sim1Used = 12;
+  int _sim2Used = 8;
   final int _maxPerSim = 100;
   
   String _selectedSim = "SIM 1";
@@ -180,15 +315,11 @@ class _ChatHomeScreenState extends State<ChatHomeScreen> {
     String secureText = _encryptMessage(plainText);
     String recipient = _phoneController.text;
 
-    final Uri uri = Uri(
-      scheme: 'sms',
-      path: recipient,
-      queryParameters: {'body': secureText},
-    );
+    final Uri smsUri = Uri.parse('sms:$recipient?body=${Uri.encodeComponent(secureText)}');
 
     try {
-      if (await canLaunchUrl(uri)) {
-        await launchUrl(uri);
+      if (await canLaunchUrl(smsUri)) {
+        await launchUrl(smsUri);
         setState(() {
           if (_selectedSim == "SIM 1") {
             _sim1Used++;
@@ -213,7 +344,9 @@ class _ChatHomeScreenState extends State<ChatHomeScreen> {
           });
         }
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not launch SMS')));
+        // Fallback simple SMS launch
+        final Uri fallbackUri = Uri.parse('sms:$recipient');
+        await launchUrl(fallbackUri);
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: $e')));
@@ -228,25 +361,36 @@ class _ChatHomeScreenState extends State<ChatHomeScreen> {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: const Color(0xFF17212B),
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        title: Row(
           children: [
-            const Text('Telegram Secure Chat', style: TextStyle(fontSize: 17)),
-            Text(
-              'SIM1 Left: $sim1Left | SIM2 Left: $sim2Left | ⏱️ 5m Timer',
-              style: const TextStyle(fontSize: 11, color: Colors.greenAccent),
+            const CircleAvatar(
+              radius: 18,
+              backgroundColor: Color(0xFF2B5278),
+              child: Icon(Icons.person, size: 20, color: Colors.white),
+            ),
+            const SizedBox(width: 10),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(widget.username, style: const TextStyle(fontSize: 16)),
+                Text(
+                  'SIM1: $sim1Left | SIM2: $sim2Left | ⏱️ 5m',
+                  style: const TextStyle(fontSize: 10, color: Colors.greenAccent),
+                ),
+              ],
             ),
           ],
         ),
         actions: [
+          // SIM Selector Dropdown
           DropdownButton<String>(
             value: _selectedSim,
             dropdownColor: const Color(0xFF17212B),
             underline: const SizedBox(),
             icon: const Icon(Icons.arrow_drop_down, color: Colors.white),
-            items: [
-              DropdownMenuItem(value: "SIM 1", child: Text("SIM 1 (${widget.sim1Number})", style: const TextStyle(fontSize: 12, color: Colors.white))),
-              DropdownMenuItem(value: "SIM 2", child: Text("SIM 2 (${widget.sim2Number})", style: const TextStyle(fontSize: 12, color: Colors.white))),
+            items: const [
+              DropdownMenuItem(value: "SIM 1", child: Text("SIM 1", style: TextStyle(fontSize: 12, color: Colors.white))),
+              DropdownMenuItem(value: "SIM 2", child: Text("SIM 2", style: TextStyle(fontSize: 12, color: Colors.white))),
             ],
             onChanged: (val) {
               setState(() {
