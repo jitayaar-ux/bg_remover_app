@@ -19,11 +19,11 @@ jobs:
         with:
           channel: 'stable'
           
-      - name: Create Android Project & Fix minSdk
+      - name: Create Android Project & Set MinSdk
         run: |
           flutter create . --platforms=android --project-name jeeta_sms_app
-          if [ -f "android/app/build.gradle" ]; then
-            sed -i 's/minSdkVersion.*/minSdkVersion 21/' android/app/build.gradle
+          if [ -f "android/gradle.properties" ]; then
+            echo "flutter.minSdkVersion=21" >> android/gradle.properties
           fi
           
       - name: Install dependencies
