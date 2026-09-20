@@ -1,5 +1,5 @@
 name: jeeta_sms_app
-description: Jeeta SMS App - Telegram style secure SMS app with profile, OTP, and in-app chat.
+description: Jeeta SMS App with secure password login, profile, and dual SIM chat.
 publish_to: 'none'
 
 environment:
@@ -10,6 +10,7 @@ dependencies:
     sdk: flutter
   url_launcher: ^6.2.5
   permission_handler: ^11.3.0
+  shared_preferences: ^2.2.2
   intl: ^0.19.0
 
 flutter:
