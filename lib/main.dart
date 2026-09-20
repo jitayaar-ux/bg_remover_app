@@ -1,12 +1,16 @@
-import 'dart:convert';
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:path_provider/path_provider.dart';
 
 void main() {
   runApp(const JeetaSmsApp());
+}
+
+// Global Memory Store for Secure Session
+class AppSession {
+  static String? storedPhone;
+  static String? storedPassword;
+  static String? storedUsername;
 }
 
 class JeetaSmsApp extends StatelessWidget {
@@ -32,30 +36,6 @@ class JeetaSmsApp extends StatelessWidget {
   }
 }
 
-// Local Storage Helper for Offline Secure Data
-class LocalStorage {
-  static Future<File> _getFile() async {
-    final dir = await getApplicationDocumentsDirectory();
-    return File('${dir.path}/jeeta_secure_data.json');
-  }
-
-  static Future<Map<String, dynamic>> getData() async {
-    try {
-      final file = await _getFile();
-      if (!await file.exists()) return {};
-      String content = await file.readAsString();
-      return jsonDecode(content);
-    } catch (_) {
-      return {};
-    }
-  }
-
-  static Future<void> saveData(Map<String, dynamic> data) async {
-    final file = await _getFile();
-    await file.writeAsString(jsonEncode(data));
-  }
-}
-
 class AuthCheckScreen extends StatefulWidget {
   const AuthCheckScreen({Key? key}) : super(key: key);
 
@@ -76,7 +56,7 @@ class _AuthCheckScreenState extends State<AuthCheckScreen> {
     await [Permission.sms, Permission.phone].request();
   }
 
-  void _checkUser() async {
+  void _checkUser() {
     String phone = _phoneController.text.trim();
     if (phone.length < 10) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -85,11 +65,9 @@ class _AuthCheckScreenState extends State<AuthCheckScreen> {
       return;
     }
 
-    Map<String, dynamic> data = await LocalStorage.getData();
-    String? savedPassword = data['password_$phone'];
-    String? savedUsername = data['username_$phone'];
+    AppSession.storedPhone = phone;
 
-    if (savedPassword == null) {
+    if (AppSession.storedPassword == null) {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
@@ -100,7 +78,7 @@ class _AuthCheckScreenState extends State<AuthCheckScreen> {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (context) => LoginPasswordScreen(phoneNumber: phone, savedPassword: savedPassword, savedUsername: savedUsername ?? 'User'),
+          builder: (context) => LoginPasswordScreen(phoneNumber: phone),
         ),
       );
     }
@@ -161,7 +139,7 @@ class _SetPasswordScreenState extends State<SetPasswordScreen> {
   final TextEditingController _passController = TextEditingController();
   final TextEditingController _confirmPassController = TextEditingController();
 
-  void _savePassword() async {
+  void _savePassword() {
     String pass = _passController.text.trim();
     String confirmPass = _confirmPassController.text.trim();
 
@@ -178,9 +156,7 @@ class _SetPasswordScreenState extends State<SetPasswordScreen> {
       return;
     }
 
-    Map<String, dynamic> data = await LocalStorage.getData();
-    data['password_${widget.phoneNumber}'] = pass;
-    await LocalStorage.saveData(data);
+    AppSession.storedPassword = pass;
 
     Navigator.pushReplacement(
       context,
@@ -203,7 +179,7 @@ class _SetPasswordScreenState extends State<SetPasswordScreen> {
             const SizedBox(height: 20),
             const Text('Set Your Login Password', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
-            const Text('This password will be required every time you open your secure chat.', style: TextStyle(color: Colors.grey, fontSize: 13), textAlign: TextAlign.center),
+            const Text('This password will be required to unlock your secure chat.', style: TextStyle(color: Colors.grey, fontSize: 13), textAlign: TextAlign.center),
             const SizedBox(height: 30),
             TextField(
               controller: _passController,
@@ -246,9 +222,7 @@ class _SetPasswordScreenState extends State<SetPasswordScreen> {
 
 class LoginPasswordScreen extends StatefulWidget {
   final String phoneNumber;
-  final String savedPassword;
-  final String savedUsername;
-  const LoginPasswordScreen({Key? key, required this.phoneNumber, required this.savedPassword, required this.savedUsername}) : super(key: key);
+  const LoginPasswordScreen({Key? key, required this.phoneNumber}) : super(key: key);
 
   @override
   _LoginPasswordScreenState createState() => _LoginPasswordScreenState();
@@ -258,12 +232,12 @@ class _LoginPasswordScreenState extends State<LoginPasswordScreen> {
   final TextEditingController _passController = TextEditingController();
 
   void _verifyPassword() {
-    if (_passController.text.trim() == widget.savedPassword) {
+    if (_passController.text.trim() == AppSession.storedPassword) {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
           builder: (context) => ChatHomeScreen(
-            username: widget.savedUsername,
+            username: AppSession.storedUsername ?? 'User',
             privateNumber: widget.phoneNumber,
           ),
         ),
@@ -329,7 +303,7 @@ class ProfileSetupScreen extends StatefulWidget {
 class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   final TextEditingController _nameController = TextEditingController();
 
-  void _saveProfile() async {
+  void _saveProfile() {
     if (_nameController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please enter your username!')),
@@ -337,15 +311,13 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       return;
     }
 
-    Map<String, dynamic> data = await LocalStorage.getData();
-    data['username_${widget.phoneNumber}'] = _nameController.text.trim();
-    await LocalStorage.saveData(data);
+    AppSession.storedUsername = _nameController.text.trim();
 
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
         builder: (context) => ChatHomeScreen(
-          username: _nameController.text.trim(),
+          username: AppSession.storedUsername!,
           privateNumber: widget.phoneNumber,
         ),
       ),
@@ -569,4 +541,31 @@ class _ChatHomeScreenState extends State<ChatHomeScreen> {
                     margin: const EdgeInsets.symmetric(vertical: 4),
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                     decoration: BoxDecoration(
-                      color: isMe ? const Col
+                      color: isMe ? const Color(0xFF2B5278) : const Color(0xFF182533),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(msg["text"], style: const TextStyle(fontSize: 16, color: Colors.white)),
+                        const SizedBox(height: 4),
+                        Text('${msg["sim"]} • 🔒 E2EE • ⏱️ 5m', style: const TextStyle(fontSize: 9, color: Colors.white60)),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            color: const Color(0xFF17212B),
+            child: Row(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.emoji_emotions_outlined, color: Colors.grey),
+                  onPressed: () {
+                    setState(() {
+                      _msgController.text += " 😊👍";
+                    });
+          
