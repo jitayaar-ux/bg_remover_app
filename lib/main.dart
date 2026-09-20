@@ -1,12 +1,12 @@
+
+```dart:lib/main.dart
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:permission_handler/permission_handler.dart';
 
 void main() {
   runApp(const JeetaSmsApp());
 }
 
-// Global Memory Store for Secure Session
 class AppSession {
   static String? storedPhone;
   static String? storedPassword;
@@ -45,16 +45,6 @@ class AuthCheckScreen extends StatefulWidget {
 
 class _AuthCheckScreenState extends State<AuthCheckScreen> {
   final TextEditingController _phoneController = TextEditingController();
-
-  @override
-  void initState() {
-    super.initState();
-    _requestPermissions();
-  }
-
-  Future<void> _requestPermissions() async {
-    await [Permission.sms, Permission.phone].request();
-  }
 
   void _checkUser() {
     String phone = _phoneController.text.trim();
@@ -568,4 +558,11 @@ class _ChatHomeScreenState extends State<ChatHomeScreen> {
                     setState(() {
                       _msgController.text += " 😊👍";
                     });
-          
+                  },
+                ),
+                Expanded(
+                  child: TextField(
+                    controller: _msgController,
+                    decoration: const InputDecoration(
+                      hintText: 'Type secure message...',
+                     
