@@ -1,7 +1,9 @@
+import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:path_provider/path_provider.dart';
 
 void main() {
   runApp(const JeetaSmsApp());
@@ -30,7 +32,30 @@ class JeetaSmsApp extends StatelessWidget {
   }
 }
 
-// 1. Check if user already has a password saved
+// Local Storage Helper for Offline Secure Data
+class LocalStorage {
+  static Future<File> _getFile() async {
+    final dir = await getApplicationDocumentsDirectory();
+    return File('${dir.path}/jeeta_secure_data.json');
+  }
+
+  static Future<Map<String, dynamic>> getData() async {
+    try {
+      final file = await _getFile();
+      if (!await file.exists()) return {};
+      String content = await file.readAsString();
+      return jsonDecode(content);
+    } catch (_) {
+      return {};
+    }
+  }
+
+  static Future<void> saveData(Map<String, dynamic> data) async {
+    final file = await _getFile();
+    await file.writeAsString(jsonEncode(data));
+  }
+}
+
 class AuthCheckScreen extends StatefulWidget {
   const AuthCheckScreen({Key? key}) : super(key: key);
 
@@ -60,12 +85,11 @@ class _AuthCheckScreenState extends State<AuthCheckScreen> {
       return;
     }
 
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    String? savedPassword = prefs.getString('password_$phone');
-    String? savedUsername = prefs.getString('username_$phone');
+    Map<String, dynamic> data = await LocalStorage.getData();
+    String? savedPassword = data['password_$phone'];
+    String? savedUsername = data['username_$phone'];
 
     if (savedPassword == null) {
-      // First time user -> Go to Set Password Screen
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
@@ -73,7 +97,6 @@ class _AuthCheckScreenState extends State<AuthCheckScreen> {
         ),
       );
     } else {
-      // Existing user -> Go to Login Password Screen
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
@@ -126,7 +149,6 @@ class _AuthCheckScreenState extends State<AuthCheckScreen> {
   }
 }
 
-// 2. First Time: Set New Password Screen
 class SetPasswordScreen extends StatefulWidget {
   final String phoneNumber;
   const SetPasswordScreen({Key? key, required this.phoneNumber}) : super(key: key);
@@ -156,8 +178,9 @@ class _SetPasswordScreenState extends State<SetPasswordScreen> {
       return;
     }
 
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.setString('password_${widget.phoneNumber}', pass);
+    Map<String, dynamic> data = await LocalStorage.getData();
+    data['password_${widget.phoneNumber}'] = pass;
+    await LocalStorage.saveData(data);
 
     Navigator.pushReplacement(
       context,
@@ -221,7 +244,6 @@ class _SetPasswordScreenState extends State<SetPasswordScreen> {
   }
 }
 
-// 3. Returning User: Enter Password Screen
 class LoginPasswordScreen extends StatefulWidget {
   final String phoneNumber;
   final String savedPassword;
@@ -296,7 +318,6 @@ class _LoginPasswordScreenState extends State<LoginPasswordScreen> {
   }
 }
 
-// 4. Profile Creation Screen (First Time Only)
 class ProfileSetupScreen extends StatefulWidget {
   final String phoneNumber;
   const ProfileSetupScreen({Key? key, required this.phoneNumber}) : super(key: key);
@@ -316,8 +337,9 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       return;
     }
 
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.setString('username_${widget.phoneNumber}', _nameController.text.trim());
+    Map<String, dynamic> data = await LocalStorage.getData();
+    data['username_${widget.phoneNumber}'] = _nameController.text.trim();
+    await LocalStorage.saveData(data);
 
     Navigator.pushReplacement(
       context,
@@ -397,7 +419,6 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   }
 }
 
-// 5. Jeeta SMS In-App Chat Screen
 class ChatHomeScreen extends StatefulWidget {
   final String username;
   final String privateNumber;
@@ -548,11 +569,4 @@ class _ChatHomeScreenState extends State<ChatHomeScreen> {
                     margin: const EdgeInsets.symmetric(vertical: 4),
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                     decoration: BoxDecoration(
-                      color: isMe ? const Color(0xFF2B5278) : const Color(0xFF182533),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(msg["text"], style: const TextStyle(fontSize: 16, color: Colors.white)),
-   
+                      color: isMe ? const Col
