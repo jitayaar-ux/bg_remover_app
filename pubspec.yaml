@@ -1,5 +1,5 @@
-name: Jeeta_sms_app
-description: Ranjit style secure SMS app with OTP login, profile, and dual SIM.
+name: jeeta_sms_app
+description: Jeeta SMS App - Telegram style secure SMS app with profile, OTP, and in-app chat.
 publish_to: 'none'
 
 environment:
