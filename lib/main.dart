@@ -1,19 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
-  runApp(const TelegramSmsApp());
+  runApp(const JeetaSmsApp());
 }
 
-class TelegramSmsApp extends StatelessWidget {
-  const TelegramSmsApp({Key? key}) : super(key: key);
+class JeetaSmsApp extends StatelessWidget {
+  const JeetaSmsApp({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Telegram Secure SMS',
+      title: 'Jeeta SMS App',
       theme: ThemeData(
         brightness: Brightness.dark,
         primaryColor: const Color(0xFF2B5278),
@@ -24,20 +25,20 @@ class TelegramSmsApp extends StatelessWidget {
           surface: const Color(0xFF17212B),
         ),
       ),
-      home: const LoginScreen(),
+      home: const AuthCheckScreen(),
     );
   }
 }
 
-// 1. Single Number Login Screen
-class LoginScreen extends StatefulWidget {
-  const LoginScreen({Key? key}) : super(key: key);
+// 1. Check if user already has a password saved
+class AuthCheckScreen extends StatefulWidget {
+  const AuthCheckScreen({Key? key}) : super(key: key);
 
   @override
-  _LoginScreenState createState() => _LoginScreenState();
+  _AuthCheckScreenState createState() => _AuthCheckScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _AuthCheckScreenState extends State<AuthCheckScreen> {
   final TextEditingController _phoneController = TextEditingController();
 
   @override
@@ -50,36 +51,52 @@ class _LoginScreenState extends State<LoginScreen> {
     await [Permission.sms, Permission.phone].request();
   }
 
-  void _sendOtp() {
-    if (_phoneController.text.length < 10) {
+  void _checkUser() async {
+    String phone = _phoneController.text.trim();
+    if (phone.length < 10) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please enter a valid mobile number!')),
       );
       return;
     }
 
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => OtpVerificationScreen(phoneNumber: _phoneController.text),
-      ),
-    );
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    String? savedPassword = prefs.getString('password_$phone');
+    String? savedUsername = prefs.getString('username_$phone');
+
+    if (savedPassword == null) {
+      // First time user -> Go to Set Password Screen
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => SetPasswordScreen(phoneNumber: phone),
+        ),
+      );
+    } else {
+      // Existing user -> Go to Login Password Screen
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => LoginPasswordScreen(phoneNumber: phone, savedPassword: savedPassword, savedUsername: savedUsername ?? 'User'),
+        ),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(backgroundColor: const Color(0xFF17212B), title: const Text('Login with Phone')),
+      appBar: AppBar(backgroundColor: const Color(0xFF17212B), title: const Text('Jeeta SMS Secure Login')),
       body: Padding(
         padding: const EdgeInsets.all(24.0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.lock_outline, size: 80, color: Color(0xFF4EA4F4)),
+            const Icon(Icons.security, size: 80, color: Color(0xFF4EA4F4)),
             const SizedBox(height: 20),
             const Text('Enter Your Mobile Number', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
-            const Text('We will send a verification code via SMS', style: TextStyle(color: Colors.grey, fontSize: 13)),
+            const Text('Secure End-to-End Encrypted SMS Messenger', style: TextStyle(color: Colors.grey, fontSize: 13), textAlign: TextAlign.center),
             const SizedBox(height: 30),
             TextField(
               controller: _phoneController,
@@ -93,14 +110,14 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
             const SizedBox(height: 30),
             ElevatedButton(
-              onPressed: _sendOtp,
+              onPressed: _checkUser,
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF4EA4F4),
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 14),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
-              child: const Text('Get OTP', style: TextStyle(fontSize: 16)),
+              child: const Text('Continue', style: TextStyle(fontSize: 16)),
             ),
           ],
         ),
@@ -109,62 +126,93 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 }
 
-// 2. OTP Verification Screen
-class OtpVerificationScreen extends StatelessWidget {
+// 2. First Time: Set New Password Screen
+class SetPasswordScreen extends StatefulWidget {
   final String phoneNumber;
-  OtpVerificationScreen({Key? key, required this.phoneNumber}) : super(key: key);
+  const SetPasswordScreen({Key? key, required this.phoneNumber}) : super(key: key);
 
-  final TextEditingController _otpController = TextEditingController();
+  @override
+  _SetPasswordScreenState createState() => _SetPasswordScreenState();
+}
+
+class _SetPasswordScreenState extends State<SetPasswordScreen> {
+  final TextEditingController _passController = TextEditingController();
+  final TextEditingController _confirmPassController = TextEditingController();
+
+  void _savePassword() async {
+    String pass = _passController.text.trim();
+    String confirmPass = _confirmPassController.text.trim();
+
+    if (pass.length < 4) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Password must be at least 4 characters!')),
+      );
+      return;
+    }
+    if (pass != confirmPass) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Passwords do not match!')),
+      );
+      return;
+    }
+
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setString('password_${widget.phoneNumber}', pass);
+
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ProfileSetupScreen(phoneNumber: widget.phoneNumber),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(backgroundColor: const Color(0xFF17212B), title: const Text('Verify OTP')),
+      appBar: AppBar(backgroundColor: const Color(0xFF17212B), title: const Text('Create Secure Password')),
       body: Padding(
         padding: const EdgeInsets.all(24.0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.verified_user, size: 80, color: Colors.greenAccent),
+            const Icon(Icons.lock_reset, size: 80, color: Colors.greenAccent),
             const SizedBox(height: 20),
-            Text('Enter 4-digit OTP sent to\n$phoneNumber', textAlign: TextAlign.center, style: const TextStyle(fontSize: 16)),
+            const Text('Set Your Login Password', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
-            const Text('(Demo OTP: 1234)', style: TextStyle(color: Colors.orange, fontSize: 13)),
+            const Text('This password will be required every time you open your secure chat.', style: TextStyle(color: Colors.grey, fontSize: 13), textAlign: TextAlign.center),
             const SizedBox(height: 30),
             TextField(
-              controller: _otpController,
-              keyboardType: TextInputType.number,
-              maxLength: 4,
+              controller: _passController,
+              obscureText: true,
               decoration: InputDecoration(
-                labelText: 'Enter OTP (1234)',
+                labelText: 'New Password',
                 filled: true,
                 fillColor: const Color(0xFF17212B),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _confirmPassController,
+              obscureText: true,
+              decoration: InputDecoration(
+                labelText: 'Confirm Password',
+                filled: true,
+                fillColor: const Color(0xFF17212B),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+            const SizedBox(height: 30),
             ElevatedButton(
-              onPressed: () {
-                if (_otpController.text == "1234") {
-                  Navigator.pushReplacement(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => ProfileSetupScreen(phoneNumber: phoneNumber),
-                    ),
-                  );
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Invalid OTP! Enter 1234')),
-                  );
-                }
-              },
+              onPressed: _savePassword,
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.green,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 14),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
-              child: const Text('Verify & Continue', style: TextStyle(fontSize: 16)),
+              child: const Text('Set Password & Continue', style: TextStyle(fontSize: 16)),
             ),
           ],
         ),
@@ -173,7 +221,82 @@ class OtpVerificationScreen extends StatelessWidget {
   }
 }
 
-// 3. Profile Creation Screen (DP, Username, Private Number)
+// 3. Returning User: Enter Password Screen
+class LoginPasswordScreen extends StatefulWidget {
+  final String phoneNumber;
+  final String savedPassword;
+  final String savedUsername;
+  const LoginPasswordScreen({Key? key, required this.phoneNumber, required this.savedPassword, required this.savedUsername}) : super(key: key);
+
+  @override
+  _LoginPasswordScreenState createState() => _LoginPasswordScreenState();
+}
+
+class _LoginPasswordScreenState extends State<LoginPasswordScreen> {
+  final TextEditingController _passController = TextEditingController();
+
+  void _verifyPassword() {
+    if (_passController.text.trim() == widget.savedPassword) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => ChatHomeScreen(
+            username: widget.savedUsername,
+            privateNumber: widget.phoneNumber,
+          ),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Incorrect Password! Try again.')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(backgroundColor: const Color(0xFF17212B), title: const Text('Enter Password')),
+      body: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.lock, size: 80, color: Color(0xFF4EA4F4)),
+            const SizedBox(height: 20),
+            Text('Welcome Back, ${widget.phoneNumber}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            const Text('Enter your secure password to unlock chat', style: TextStyle(color: Colors.grey, fontSize: 13)),
+            const SizedBox(height: 30),
+            TextField(
+              controller: _passController,
+              obscureText: true,
+              decoration: InputDecoration(
+                labelText: 'Password',
+                filled: true,
+                fillColor: const Color(0xFF17212B),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+            const SizedBox(height: 30),
+            ElevatedButton(
+              onPressed: _verifyPassword,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF4EA4F4),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: const Text('Unlock Chat', style: TextStyle(fontSize: 16)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// 4. Profile Creation Screen (First Time Only)
 class ProfileSetupScreen extends StatefulWidget {
   final String phoneNumber;
   const ProfileSetupScreen({Key? key, required this.phoneNumber}) : super(key: key);
@@ -185,7 +308,7 @@ class ProfileSetupScreen extends StatefulWidget {
 class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   final TextEditingController _nameController = TextEditingController();
 
-  void _saveProfile() {
+  void _saveProfile() async {
     if (_nameController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please enter your username!')),
@@ -193,11 +316,14 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       return;
     }
 
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setString('username_${widget.phoneNumber}', _nameController.text.trim());
+
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
         builder: (context) => ChatHomeScreen(
-          username: _nameController.text,
+          username: _nameController.text.trim(),
           privateNumber: widget.phoneNumber,
         ),
       ),
@@ -231,7 +357,6 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            // Private Number field (Only for me)
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
@@ -272,7 +397,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   }
 }
 
-// 4. Telegram Style Chat Screen with SIM Selector
+// 5. Jeeta SMS In-App Chat Screen
 class ChatHomeScreen extends StatefulWidget {
   final String username;
   final String privateNumber;
@@ -315,42 +440,36 @@ class _ChatHomeScreenState extends State<ChatHomeScreen> {
     String secureText = _encryptMessage(plainText);
     String recipient = _phoneController.text;
 
-    final Uri smsUri = Uri.parse('sms:$recipient?body=${Uri.encodeComponent(secureText)}');
+    setState(() {
+      if (_selectedSim == "SIM 1") {
+        _sim1Used++;
+      } else {
+        _sim2Used++;
+      }
+
+      _messages.add({
+        "text": plainText,
+        "sim": _selectedSim,
+        "isMe": true,
+        "time": DateTime.now(),
+      });
+      _msgController.clear();
+    });
+
+    if (_isAutoDeleteActive) {
+      Future.delayed(const Duration(minutes: 5), () {
+        setState(() {
+          _messages.removeWhere((m) => m["text"] == plainText);
+        });
+      });
+    }
 
     try {
+      final Uri smsUri = Uri.parse('sms:$recipient?body=${Uri.encodeComponent(secureText)}');
       if (await canLaunchUrl(smsUri)) {
         await launchUrl(smsUri);
-        setState(() {
-          if (_selectedSim == "SIM 1") {
-            _sim1Used++;
-          } else {
-            _sim2Used++;
-          }
-
-          _messages.add({
-            "text": plainText,
-            "sim": _selectedSim,
-            "isMe": true,
-            "time": DateTime.now(),
-          });
-          _msgController.clear();
-        });
-
-        if (_isAutoDeleteActive) {
-          Future.delayed(const Duration(minutes: 5), () {
-            setState(() {
-              _messages.removeWhere((m) => m["text"] == plainText);
-            });
-          });
-        }
-      } else {
-        // Fallback simple SMS launch
-        final Uri fallbackUri = Uri.parse('sms:$recipient');
-        await launchUrl(fallbackUri);
       }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: $e')));
-    }
+    } catch (_) {}
   }
 
   @override
@@ -372,7 +491,7 @@ class _ChatHomeScreenState extends State<ChatHomeScreen> {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(widget.username, style: const TextStyle(fontSize: 16)),
+                Text('Jeeta SMS - ${widget.username}', style: const TextStyle(fontSize: 15)),
                 Text(
                   'SIM1: $sim1Left | SIM2: $sim2Left | ⏱️ 5m',
                   style: const TextStyle(fontSize: 10, color: Colors.greenAccent),
@@ -382,7 +501,6 @@ class _ChatHomeScreenState extends State<ChatHomeScreen> {
           ],
         ),
         actions: [
-          // SIM Selector Dropdown
           DropdownButton<String>(
             value: _selectedSim,
             dropdownColor: const Color(0xFF17212B),
@@ -437,58 +555,4 @@ class _ChatHomeScreenState extends State<ChatHomeScreen> {
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         Text(msg["text"], style: const TextStyle(fontSize: 16, color: Colors.white)),
-                        const SizedBox(height: 4),
-                        Text('${msg["sim"]} • 🔒 E2EE • ⏱️ 5m', style: const TextStyle(fontSize: 9, color: Colors.white60)),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-            color: const Color(0xFF17212B),
-            child: Row(
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.emoji_emotions_outlined, color: Colors.grey),
-                  onPressed: () {
-                    setState(() {
-                      _msgController.text += " 😊👍";
-                    });
-                  },
-                ),
-                Expanded(
-                  child: TextField(
-                    controller: _msgController,
-                    decoration: const InputDecoration(
-                      hintText: 'Type secure message...',
-                      border: InputBorder.none,
-                      hintStyle: TextStyle(color: Colors.grey),
-                    ),
-                  ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.sticky_note_2_outlined, color: Colors.grey),
-                  onPressed: () {
-                    setState(() {
-                      _msgController.text += " 🎨[Sticker]";
-                    });
-                  },
-                ),
-                CircleAvatar(
-                  backgroundColor: const Color(0xFF4EA4F4),
-                  child: IconButton(
-                    icon: const Icon(Icons.send, color: Colors.white, size: 18),
-                    onPressed: _sendMessage,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
+   
