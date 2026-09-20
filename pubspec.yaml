@@ -1,5 +1,5 @@
-name: telegram_sms_app
-description: Telegram style secure SMS app with dual SIM counter.
+name: Jeeta_sms_app
+description: Ranjit style secure SMS app with OTP login, profile, and dual SIM.
 publish_to: 'none'
 
 environment:
